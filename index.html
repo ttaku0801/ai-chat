@@ -305,7 +305,7 @@ async function send() {
   }));
 
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/.netlify/functions/proxy", {
       method:"POST",
       headers:{"content-type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
       body: JSON.stringify({model:model.id,max_tokens:maxTok,system:buildSys(),messages:apiMsgs,stream:false})
@@ -341,7 +341,7 @@ function stopStream() {
 
 async function extractMemo(userMsg, aiMsg) {
   try {
-    const res = await fetch("https://api.anthropic.com/v1/messages", {
+    const res = await fetch("/.netlify/functions/proxy", {
       method:"POST",
       headers:{"content-type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
       body: JSON.stringify({
