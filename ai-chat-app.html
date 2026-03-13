@@ -1,0 +1,620 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>AI Chat</title>
+<style>
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  ::-webkit-scrollbar{display:none}
+  body{background:#0a0a0f;color:#f2f2f7;font-family:-apple-system,'Helvetica Neue',sans-serif;height:100dvh;display:flex;flex-direction:column;max-width:480px;margin:0 auto;overflow:hidden}
+  @keyframes dot{0%,100%{transform:scale(1);opacity:.4}50%{transform:scale(1.4);opacity:1}}
+  @keyframes slideUp{from{transform:translateY(100%)}to{transform:translateY(0)}}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:translateY(0)}}
+  button{font-family:inherit;cursor:pointer}
+  textarea,input{font-family:inherit;caret-color:#30d158}
+
+  #setup{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:16px;padding:24px}
+  #setup h1{font-size:24px;font-weight:700}
+  #setup p{font-size:14px;color:#8e8e93;text-align:center;line-height:1.6}
+  #setup input{width:100%;background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:14px;color:#f2f2f7;font-size:15px;outline:none}
+  #setup button{width:100%;padding:14px;background:linear-gradient(135deg,#5e5ce6,#30d158);border:none;border-radius:14px;color:#fff;font-size:16px;font-weight:600}
+  #setup a{font-size:13px;color:#5e5ce6}
+
+  #app{display:none;flex-direction:column;height:100%}
+
+  header{background:rgba(10,10,18,.98);border-bottom:1px solid rgba(255,255,255,.09);padding:10px 12px;display:flex;align-items:center;gap:8px;flex-shrink:0}
+  #sessBtn{background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:10px;padding:7px 10px;color:#f2f2f7;font-size:13px;display:flex;align-items:center;gap:5px;max-width:140px;overflow:hidden}
+  #sessBtn span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+  #modelBadge{border-radius:20px;padding:4px 10px;font-size:11px;font-weight:600;white-space:nowrap;border:1px solid}
+  #newBtn{background:rgba(94,92,230,.2);border:1px solid rgba(94,92,230,.4);border-radius:10px;width:34px;height:34px;font-size:20px;color:#7d7aff;display:flex;align-items:center;justify-content:center;flex-shrink:0}
+
+  #chatArea{flex:1;overflow-y:auto;padding:14px 12px 6px}
+  .empty{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:12px;padding-bottom:40px;text-align:center}
+  .empty h2{font-size:20px;font-weight:700}
+  .empty small{font-size:12px;color:#8e8e93}
+  .shortcuts{display:flex;flex-wrap:wrap;gap:7px;justify-content:center;margin-top:4px}
+  .sc-btn{background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:7px 14px;font-size:13px;color:#aeaeb2}
+
+  .msg{display:flex;gap:9px;margin-bottom:14px;animation:fadeIn .2s ease}
+  .msg.user{flex-direction:row-reverse}
+  .avatar{width:30px;height:30px;border-radius:50%;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:13px}
+  .avatar.user{background:linear-gradient(135deg,#5e5ce6,#bf5af2)}
+  .avatar.ai{background:linear-gradient(135deg,#30d158,#34c759)}
+  .bubble{max-width:77%;border-radius:16px;padding:10px 13px;font-size:15px;line-height:1.6;word-break:break-word}
+  .bubble.user{background:linear-gradient(135deg,#5e5ce6,#7d7aff);border-radius:16px 4px 16px 16px}
+  .bubble.ai{background:rgba(44,44,46,.95);border:1px solid rgba(255,255,255,.09);border-radius:4px 16px 16px 16px}
+  .meta{display:flex;align-items:center;justify-content:flex-end;gap:7px;margin-top:4px}
+  .meta span{font-size:10px;color:rgba(255,255,255,.25)}
+  .meta button{background:none;border:none;color:rgba(255,255,255,.25);font-size:11px;padding:0 2px}
+  .meta button.on{color:#ff9500}
+
+  .dots{display:flex;gap:5px;padding:4px 0}
+  .dot{width:6px;height:6px;border-radius:50%;background:#30d158}
+
+  .code-block{margin:6px 0;border-radius:8px;overflow:hidden;border:1px solid rgba(255,255,255,.1)}
+  .code-header{background:rgba(0,0,0,.7);padding:4px 10px;display:flex;justify-content:space-between;align-items:center;font-size:10px;color:#636366}
+  .code-header button{background:none;border:none;color:#636366;font-size:10px;cursor:pointer}
+  .code-body{background:rgba(0,0,0,.5);overflow-x:auto}
+  .code-line{display:flex;min-width:max-content}
+  .line-num{color:#3a3a4a;font-size:11px;font-family:monospace;min-width:28px;padding:0 8px 0 6px;flex-shrink:0;user-select:none}
+  .line-code{font-family:monospace;font-size:12px;color:#30d158;white-space:pre}
+  .inline-code{background:rgba(0,0,0,.4);border-radius:3px;padding:1px 4px;font-family:monospace;font-size:12px;color:#30d158}
+
+  #inputArea{padding:8px 10px 14px;border-top:1px solid rgba(255,255,255,.09);background:rgba(10,10,18,.98);flex-shrink:0;padding-bottom:max(14px,env(safe-area-inset-bottom))}
+  #inputRow{display:flex;gap:7px;align-items:flex-end;background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.12);border-radius:24px;padding:5px 5px 5px 12px}
+  #imgBtn{background:none;border:none;color:#636366;font-size:17px;flex-shrink:0;padding-bottom:7px}
+  #msgInput{flex:1;background:transparent;border:none;outline:none;color:#f2f2f7;font-size:15px;resize:none;min-height:32px;max-height:110px;line-height:1.5;padding-top:6px}
+  #sendBtn{width:40px;height:40px;border-radius:50%;border:none;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;transition:background .2s}
+  #sendBtn.active{background:linear-gradient(135deg,#5e5ce6,#30d158);color:#fff;cursor:pointer}
+  #sendBtn.inactive{background:rgba(255,255,255,.08);color:#636366;cursor:not-allowed}
+  #stopBtn{width:40px;height:40px;border-radius:50%;border:2px solid #ff453a;background:rgba(255,69,58,.2);color:#ff453a;font-size:18px;display:flex;align-items:center;justify-content:center;flex-shrink:0;touch-action:manipulation}
+
+  #imgPreview{padding:5px 12px 0;display:flex;align-items:center;gap:8px}
+  #imgPreview img{height:48px;border-radius:8px;border:1px solid rgba(255,255,255,.09)}
+  #imgPreview button{background:rgba(255,69,58,.15);border:1px solid rgba(255,69,58,.3);border-radius:8px;color:#ff453a;padding:3px 8px;font-size:12px}
+
+  nav{background:rgba(10,10,18,.98);border-top:1px solid rgba(255,255,255,.09);display:flex;flex-shrink:0;padding-bottom:max(10px,env(safe-area-inset-bottom))}
+  .nav-btn{flex:1;padding:9px 0 5px;background:transparent;border:none;display:flex;flex-direction:column;align-items:center;gap:2px}
+  .nav-btn .icon{font-size:22px}
+  .nav-btn .label{font-size:11px;color:#636366}
+  .nav-btn.active .label{color:#7d7aff;font-weight:600}
+  .nav-bar{width:20px;height:3px;border-radius:2px;background:#5e5ce6;margin-top:1px}
+
+  #settingsPane,#historyPane{display:none;flex:1;overflow-y:auto;padding:14px 12px}
+  .sec-label{font-size:11px;color:#8e8e93;letter-spacing:1.5px;text-transform:uppercase;margin:18px 0 8px}
+  .sec-label:first-child{margin-top:0}
+  .card{background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:13px 14px;margin-bottom:4px}
+  .model-btn{width:100%;background:rgba(28,28,35,.95);border:1.5px solid rgba(255,255,255,.09);border-radius:14px;padding:12px 14px;margin-bottom:8px;display:flex;align-items:center;gap:12px;text-align:left;color:#f2f2f7}
+  .model-btn.selected{border-color:var(--mc)}
+  .tmpl-row{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:10px}
+  .tmpl-btn{background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:6px 12px;font-size:12px;color:#aeaeb2}
+  .tmpl-btn.selected{background:rgba(94,92,230,.25);border-color:rgba(94,92,230,.5);color:#7d7aff}
+  #sysPrompt{width:100%;background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:14px;padding:12px;color:#f2f2f7;font-size:14px;line-height:1.6;resize:none;outline:none;min-height:90px}
+  .hist-item{display:flex;gap:8px;margin-bottom:8px}
+  .hist-btn{flex:1;background:rgba(28,28,35,.95);border:1.5px solid rgba(255,255,255,.09);border-radius:14px;padding:11px 13px;text-align:left;color:#f2f2f7;font-size:14px}
+  .hist-btn.active{background:rgba(94,92,230,.15);border-color:rgba(94,92,230,.5);color:#7d7aff}
+  .hist-del{width:40px;background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.2);border-radius:12px;color:#ff453a;font-size:16px;flex-shrink:0}
+  .memo-item{display:flex;align-items:center;gap:7px;padding:5px 0;border-bottom:1px solid rgba(255,255,255,.09);font-size:13px}
+  .memo-item:last-child{border-bottom:none}
+
+  #drawer{display:none;position:fixed;inset:0;z-index:100}
+  #drawerBg{background:rgba(0,0,0,.6);position:absolute;inset:0}
+  #drawerPanel{position:absolute;bottom:0;left:0;right:0;background:rgba(15,15,22,.99);border-radius:20px 20px 0 0;padding:12px 12px 32px;max-height:70vh;overflow-y:auto;animation:slideUp .25s ease;border-top:1px solid rgba(255,255,255,.09)}
+  #drawerHandle{width:36px;height:4px;border-radius:2px;background:#3a3a4a;margin:0 auto 12px}
+
+  #apiSetup{display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:14px;padding:24px}
+  .continue-row{text-align:center;margin-bottom:10px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap}
+  .continue-btn{background:rgba(94,92,230,.15);border:1px solid rgba(94,92,230,.3);border-radius:20px;padding:6px 16px;color:#7d7aff;font-size:13px}
+  .retry-btn{background:rgba(255,149,0,.15);border:1px solid rgba(255,149,0,.3);border-radius:20px;padding:6px 16px;color:#ff9500;font-size:13px}
+</style>
+</head>
+<body>
+
+<!-- API Key Setup -->
+<div id="setup">
+  <div style="font-size:52px">🤖</div>
+  <h1>AI Chat</h1>
+  <p>Anthropic APIキーを入力してください。<br>キーはこのデバイスにのみ保存されます。</p>
+  <input type="password" id="apiKeyInput" placeholder="sk-ant-...">
+  <button onclick="saveKey()">はじめる</button>
+  <a href="https://console.anthropic.com" target="_blank">APIキーを取得する →</a>
+  <p style="font-size:11px;color:#636366">キーはlocalStorageに保存。外部送信なし。</p>
+</div>
+
+<!-- Main App -->
+<div id="app">
+  <header>
+    <button id="sessBtn" onclick="toggleDrawer()"><span>☰</span><span id="sessName">チャット 1</span></button>
+    <div style="flex:1"></div>
+    <div id="modelBadge"></div>
+    <button id="newBtn" onclick="newSess()">+</button>
+  </header>
+
+  <div id="chatArea"></div>
+  <div id="imgPreview" style="display:none">
+    <img id="previewImg" src="" alt="">
+    <button onclick="clearImg()">削除</button>
+  </div>
+  <div id="inputArea">
+    <div id="inputRow">
+      <button id="imgBtn" onclick="document.getElementById('fileInput').click()">🖼️</button>
+      <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleImg(this)">
+      <textarea id="msgInput" placeholder="メッセージを入力…" rows="1" oninput="autoResize(this)" onkeydown="handleKey(event)"></textarea>
+      <button id="sendBtn" class="inactive" onclick="send()">↑</button>
+    </div>
+  </div>
+
+  <nav>
+    <button class="nav-btn active" id="nav-chat" onclick="switchTab('chat')">
+      <div class="icon">💬</div><div class="label">チャット</div><div class="nav-bar"></div>
+    </button>
+    <button class="nav-btn" id="nav-settings" onclick="switchTab('settings')">
+      <div class="icon">⚙️</div><div class="label">設定</div>
+    </button>
+    <button class="nav-btn" id="nav-history" onclick="switchTab('history')">
+      <div class="icon">📋</div><div class="label">履歴</div>
+    </button>
+  </nav>
+
+  <div id="settingsPane">
+    <div class="sec-label">👤 プロフィール</div>
+    <div class="card">
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div><div style="font-size:11px;color:#8e8e93;margin-bottom:3px">名前</div><input id="profName" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:7px 10px;color:#f2f2f7;font-size:14px;outline:none" oninput="saveProfile()"></div>
+        <div><div style="font-size:11px;color:#8e8e93;margin-bottom:3px">職業</div><input id="profJob" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:7px 10px;color:#f2f2f7;font-size:14px;outline:none" oninput="saveProfile()"></div>
+        <div><div style="font-size:11px;color:#8e8e93;margin-bottom:3px">好み・趣味</div><input id="profLike" style="width:100%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.09);border-radius:8px;padding:7px 10px;color:#f2f2f7;font-size:14px;outline:none" oninput="saveProfile()"></div>
+      </div>
+    </div>
+
+    <div style="display:flex;align-items:center;justify-content:space-between">
+      <div class="sec-label">🧠 AIの記憶</div>
+      <button onclick="clearMemos()" style="background:none;border:none;color:#ff453a;font-size:12px;margin-top:18px">全削除</button>
+    </div>
+    <div class="card" id="memoList"></div>
+
+    <div class="sec-label">モデル選択</div>
+    <div id="modelList"></div>
+
+    <div class="sec-label">システムプロンプト</div>
+    <div class="tmpl-row" id="tmplList"></div>
+    <textarea id="sysPrompt" rows="4" oninput="saveSettings()"></textarea>
+
+    <div class="sec-label" id="tokLabel">最大トークン · 4000</div>
+    <div class="card">
+      <input type="range" min="500" max="4000" step="500" value="4000" id="tokRange" oninput="updateTok(this.value)" style="width:100%;accent-color:#30d158">
+      <div style="display:flex;justify-content:space-between;font-size:11px;color:#636366;margin-top:4px"><span>500</span><span>4000</span></div>
+    </div>
+  </div>
+
+  <div id="historyPane">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:12px">
+      <div class="sec-label" style="margin:0">履歴</div>
+      <div style="display:flex;gap:8px">
+        <button onclick="exportChat()" style="background:rgba(28,28,35,.95);border:1px solid rgba(255,255,255,.09);border-radius:20px;padding:5px 11px;color:#aeaeb2;font-size:12px">📤 出力</button>
+        <button onclick="newSess()" style="background:rgba(94,92,230,.15);border:1px solid rgba(94,92,230,.3);border-radius:20px;padding:5px 11px;color:#7d7aff;font-size:12px">＋ 新規</button>
+      </div>
+    </div>
+    <div id="histList"></div>
+  </div>
+
+  <!-- Session Drawer -->
+  <div id="drawer">
+    <div id="drawerBg" onclick="toggleDrawer()"></div>
+    <div id="drawerPanel">
+      <div id="drawerHandle"></div>
+      <div style="font-size:15px;font-weight:700;margin-bottom:12px">セッション</div>
+      <div id="drawerList"></div>
+      <button onclick="newSess()" style="width:100%;padding:12px;background:rgba(94,92,230,.1);border:1.5px dashed rgba(94,92,230,.35);border-radius:11px;color:#7d7aff;font-size:14px;font-weight:600;margin-top:6px">＋ 新しいチャット</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const MODELS = [
+  { id:"claude-opus-4-6",          name:"Opus 4.6",   badge:"👑", color:"#ff9500" },
+  { id:"claude-sonnet-4-6",        name:"Sonnet 4.6", badge:"⚡", color:"#30d158" },
+  { id:"claude-haiku-4-5-20251001",name:"Haiku 4.5",  badge:"🚀", color:"#64d2ff" },
+];
+const TEMPLATES = [
+  { name:"🤖 標準",     prompt:"あなたは優秀なAIアシスタントです。日本語で丁寧かつ簡潔に回答してください。" },
+  { name:"👨‍💻 エンジニア", prompt:"あなたは優秀なソフトウェアエンジニアです。技術的に正確に答えてください。" },
+  { name:"📚 先生",     prompt:"あなたは親切な先生です。わかりやすく例を使って説明してください。" },
+  { name:"💼 ビジネス", prompt:"あなたはビジネスコンサルタントです。論理的で実践的なアドバイスを提供してください。" },
+  { name:"🌏 翻訳",     prompt:"あなたはプロの翻訳者です。自然な翻訳を提供してください。" },
+];
+
+const ld = (k,d) => { try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch{ return d; } };
+const sv = (k,v) => { try{ localStorage.setItem(k,JSON.stringify(v)); }catch{} };
+const ts = () => new Date().toLocaleTimeString("ja-JP",{hour:"2-digit",minute:"2-digit"});
+
+let apiKey  = localStorage.getItem("ac_key") || "";
+let sessions= ld("ac2_sess",[{id:"s1",name:"チャット 1",msgs:[]}]);
+let sid     = "s1";
+let model   = ld("ac2_model", MODELS[1]);
+let sys     = ld("ac2_sys",   TEMPLATES[0].prompt);
+let maxTok  = ld("ac2_tok",   4000);
+let profile = ld("ac2_prof",  {name:"",job:"",like:""});
+let memos   = ld("ac2_memo",  []);
+let stars   = ld("ac2_stars", []);
+let imgData = null;
+let loading = false;
+let stopFlag= false;
+let speaking= false;
+
+// Init
+if (apiKey) showApp();
+else document.getElementById("setup").style.display="flex";
+
+function saveKey() {
+  const k = document.getElementById("apiKeyInput").value.trim();
+  if (!k.startsWith("sk-")) { alert("APIキーは sk- で始まります"); return; }
+  localStorage.setItem("ac_key", k);
+  apiKey = k;
+  showApp();
+}
+
+function showApp() {
+  document.getElementById("setup").style.display="none";
+  document.getElementById("app").style.display="flex";
+  document.getElementById("app").style.flexDirection="column";
+  document.getElementById("app").style.height="100%";
+  initSettings();
+  renderChat();
+  renderHist();
+  updateModelBadge();
+}
+
+function buildSys() {
+  let s = sys;
+  const p = [];
+  if(profile.name) p.push("名前: "+profile.name);
+  if(profile.job)  p.push("職業: "+profile.job);
+  if(profile.like) p.push("好み: "+profile.like);
+  if(memos.length) p.push("\n【記憶】\n"+memos.map((m,i)=>`${i+1}. ${m}`).join("\n"));
+  if(p.length) s += "\n\n【ユーザー情報】\n"+p.join("\n");
+  return s;
+}
+
+function getSess() { return sessions.find(s=>s.id===sid) ?? sessions[0]; }
+
+async function send() {
+  const input = document.getElementById("msgInput").value.trim();
+  if ((!input && !imgData) || loading) return;
+  stopFlag = false;
+  loading = true;
+
+  const um = { r:"user", c:input||"この画像について教えて", t:ts(), img:imgData||null };
+  const s = getSess();
+  s.msgs.push(um);
+  if (s.msgs.length === 1) s.name = input.slice(0,18)||"画像";
+  sv("ac2_sess", sessions);
+
+  document.getElementById("msgInput").value = "";
+  document.getElementById("msgInput").style.height = "32px";
+  imgData = null;
+  document.getElementById("imgPreview").style.display = "none";
+  updateSendBtn();
+  renderChat();
+
+  const apiMsgs = s.msgs.map(m => ({
+    role: m.r,
+    content: m.img
+      ? [{type:"image",source:{type:"base64",media_type:"image/jpeg",data:m.img}},{type:"text",text:m.c}]
+      : m.c
+  }));
+
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"content-type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+      body: JSON.stringify({model:model.id,max_tokens:maxTok,system:buildSys(),messages:apiMsgs,stream:false})
+    });
+
+    if (stopFlag) { loading=false; renderChat(); return; }
+
+    const data = await res.json();
+    if (!res.ok) throw new Error(data?.error?.message ?? "HTTP "+res.status);
+    const txt = (data.content??[]).filter(b=>b.type==="text").map(b=>b.text).join("") || "（応答なし）";
+
+    s.msgs.push({r:"assistant",c:txt,t:ts()});
+    sv("ac2_sess",sessions);
+
+    // Background memo
+    if (input) extractMemo(input, txt);
+
+  } catch(e) {
+    if (!stopFlag) s.msgs.push({r:"assistant",c:"⚠️ "+e.message,t:ts()});
+    sv("ac2_sess",sessions);
+  }
+
+  loading=false;
+  renderChat();
+  renderHist();
+}
+
+function stopStream() {
+  stopFlag = true;
+  loading = false;
+  renderChat();
+}
+
+async function extractMemo(userMsg, aiMsg) {
+  try {
+    const res = await fetch("https://api.anthropic.com/v1/messages", {
+      method:"POST",
+      headers:{"content-type":"application/json","x-api-key":apiKey,"anthropic-version":"2023-06-01"},
+      body: JSON.stringify({
+        model:"claude-haiku-4-5-20251001", max_tokens:150, stream:false,
+        system:"ユーザーの発言から将来役立つ個人情報・好み・習慣があれば箇条書きで。なければ\"none\"のみ返す。",
+        messages:[{role:"user",content:"ユーザー: "+userMsg.slice(0,200)}]
+      })
+    });
+    const d = await res.json();
+    const t = (d.content?.[0]?.text??"").trim();
+    if (t && t !== "none") {
+      const nm = t.split("\n").filter(l=>l.startsWith("-")).map(l=>l.slice(1).trim()).filter(Boolean);
+      if (nm.length) { memos = [...new Set([...memos,...nm])].slice(-20); sv("ac2_memo",memos); renderMemos(); }
+    }
+  } catch {}
+}
+
+// ── Render ──
+function renderMD(text) {
+  const lines = text.split("\n");
+  let html = "";
+  let i = 0;
+  while (i < lines.length) {
+    const l = escHtml(lines[i]);
+    const raw = lines[i];
+    if (raw.startsWith("### ")) html += `<div style="font-weight:700;color:#7d7aff;margin:8px 0 2px;font-size:14px">${escHtml(raw.slice(4))}</div>`;
+    else if (raw.startsWith("## ")) html += `<div style="font-weight:700;color:#bf5af2;margin:10px 0 3px;font-size:15px">${escHtml(raw.slice(3))}</div>`;
+    else if (raw.startsWith("# "))  html += `<div style="font-weight:700;color:#f2f2f7;margin:10px 0 4px;font-size:16px">${escHtml(raw.slice(2))}</div>`;
+    else if (raw.startsWith("- ")||raw.startsWith("* ")) html += `<div style="padding-left:10px;margin:1px 0"><span style="color:#30d158;margin-right:6px">•</span>${inlineMD(raw.slice(2))}</div>`;
+    else if (/^\d+\. /.test(raw)) {
+      const n = raw.match(/^(\d+)\. /)[1];
+      html += `<div style="padding-left:10px;margin:1px 0"><span style="color:#64d2ff;margin-right:6px">${n}.</span>${inlineMD(raw.replace(/^\d+\. /,""))}</div>`;
+    } else if (raw.startsWith("```")) {
+      const lang = raw.slice(3).trim();
+      const code = [];
+      i++;
+      while (i < lines.length && !lines[i].startsWith("```")) { code.push(lines[i]); i++; }
+      const ct = code.join("\n");
+      const escaped = code.map(escHtml);
+      const id = "cb"+Math.random().toString(36).slice(2);
+      html += `<div class="code-block"><div class="code-header"><span>${lang||"code"}</span><button onclick="navigator.clipboard?.writeText(document.getElementById('${id}').innerText)">📋 コピー</button></div><div class="code-body" id="${id}">${escaped.map((ln,li)=>`<div class="code-line"><span class="line-num">${li+1}</span><span class="line-code">${ln}</span></div>`).join("")}</div></div>`;
+    } else if (raw.trim() === "") html += `<div style="height:5px"></div>`;
+    else html += `<div style="margin:1px 0">${inlineMD(raw)}</div>`;
+    i++;
+  }
+  return `<div style="line-height:1.7">${html}</div>`;
+}
+
+function inlineMD(t) {
+  return escHtml(t)
+    .replace(/\*\*([^*]+)\*\*/g, "<strong>$1</strong>")
+    .replace(/\*([^*]+)\*/g, '<em style="color:#aeaeb2">$1</em>')
+    .replace(/`([^`]+)`/g, '<code class="inline-code">$1</code>');
+}
+
+function escHtml(t) {
+  return t.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+}
+
+function renderChat() {
+  const s = getSess();
+  const area = document.getElementById("chatArea");
+  document.getElementById("sessName").textContent = s.name;
+
+  if (!s.msgs.length && !loading) {
+    area.innerHTML = `<div class="empty">
+      <div style="font-size:50px">🤖</div>
+      <h2>${profile.name?"こんにちは、"+profile.name+"さん！":"何でも聞いてね"}</h2>
+      <small>${model.badge} ${model.name}</small>
+      ${memos.length?`<div style="background:rgba(48,209,88,.07);border:1px solid rgba(48,209,88,.2);border-radius:10px;padding:7px 14px;font-size:12px;color:#30d158">🧠 ${memos.length}件の記憶あり</div>`:""}
+      <div class="shortcuts">
+        <button class="sc-btn" onclick="setInput('自己紹介して')">自己紹介して</button>
+        <button class="sc-btn" onclick="setInput('今日のアドバイス')">今日のアドバイス</button>
+        <button class="sc-btn" onclick="setInput('面白い雑学教えて')">面白い雑学教えて</button>
+      </div>
+    </div>`;
+    return;
+  }
+
+  let html = "";
+  s.msgs.forEach((m,i) => {
+    const u = m.r==="user";
+    const starred = stars.includes(sid+":"+i);
+    html += `<div class="msg ${u?"user":""}">
+      <div class="avatar ${u?"user":"ai"}">${u?"👤":"🤖"}</div>
+      <div style="max-width:77%">
+        ${m.img?`<img src="data:image/jpeg;base64,${m.img}" style="max-width:100%;border-radius:10px;margin-bottom:5px;display:block">`:""}
+        <div class="bubble ${u?"user":"ai"}">
+          ${u?escHtml(m.c):renderMD(m.c)}
+          <div class="meta">
+            <span>${m.t}</span>
+            ${!u?`<button onclick="navigator.clipboard?.writeText(${JSON.stringify(m.c).replace(/"/g,"&quot;")})">📋</button>
+            <button onclick="speakText(${JSON.stringify(m.c).replace(/"/g,"&quot;")})" id="spk${i}">🔊</button>
+            <button onclick="toggleStar(${i})" style="color:${starred?"#ff9500":"rgba(255,255,255,.25)"}">  ${starred?"⭐":"☆"}</button>`:""}
+          </div>
+        </div>
+      </div>
+    </div>`;
+  });
+
+  if (loading) {
+    html += `<div class="msg"><div class="avatar ai">🤖</div><div class="bubble ai"><div class="dots">${[0,1,2].map(i=>`<div class="dot" style="animation:dot 1.2s ease-in-out ${i*.2}s infinite"></div>`).join("")}</div></div></div>`;
+  }
+
+  // Continue / retry buttons
+  const last = s.msgs.at(-1);
+  if (!loading && last?.r==="assistant") {
+    let btns = "";
+    if (last.c.startsWith("⚠️")) {
+      const lastUser = [...s.msgs].reverse().find(m=>m.r==="user");
+      if (lastUser) btns += `<button class="retry-btn" onclick="setInput(${JSON.stringify(lastUser.c).replace(/"/g,"&quot;")})">🔄 再送信</button>`;
+    } else if (last.c.length > 400) {
+      btns += `<button class="continue-btn" onclick="setInput('続きを書いてください')">▶ 続きを書いて</button>`;
+    }
+    if (btns) html += `<div class="continue-row">${btns}</div>`;
+  }
+
+  area.innerHTML = html;
+  area.scrollTop = area.scrollHeight;
+
+  // Update stop/send button
+  const sb = document.getElementById("sendBtn");
+  const inputEl = document.getElementById("msgInput");
+  if (loading) {
+    sb.outerHTML = `<button id="stopBtn" onpointerdown="stopStream()">■</button>`;
+  } else {
+    if (!document.getElementById("sendBtn")) {
+      document.getElementById("stopBtn")?.insertAdjacentHTML("afterend",`<button id="sendBtn" class="${inputEl?.value.trim()||imgData?"active":"inactive"}" onclick="send()">↑</button>`);
+      document.getElementById("stopBtn")?.remove();
+    }
+  }
+}
+
+function renderHist() {
+  const el = document.getElementById("histList");
+  let html = "";
+  [...sessions].reverse().forEach(s => {
+    html += `<div class="hist-item">
+      <button class="hist-btn ${s.id===sid?"active":""}" onclick="switchSess('${s.id}')">
+        <div style="display:flex;justify-content:space-between"><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:75%">${escHtml(s.name)}</span><span style="font-size:12px;color:#636366">${s.msgs.length}件</span></div>
+        ${s.msgs.length?`<div style="font-size:12px;color:#8e8e93;margin-top:3px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${escHtml(s.msgs.at(-1).c.slice(0,40))}…</div>`:""}
+      </button>
+      ${sessions.length>1?`<button class="hist-del" onclick="delSess('${s.id}')">×</button>`:""}
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderDrawer() {
+  const el = document.getElementById("drawerList");
+  let html = "";
+  sessions.forEach(s => {
+    html += `<div style="display:flex;gap:8px;margin-bottom:7px">
+      <button onclick="switchSess('${s.id}');toggleDrawer()" style="flex:1;background:${s.id===sid?"rgba(94,92,230,.2)":"rgba(28,28,35,.95)"};border:1.5px solid ${s.id===sid?"rgba(94,92,230,.5)":"rgba(255,255,255,.09)"};border-radius:11px;padding:11px 13px;text-align:left;color:${s.id===sid?"#7d7aff":"#f2f2f7"};font-size:14px;font-weight:${s.id===sid?600:400}">${escHtml(s.name)} <span style="color:#636366;font-size:12px;margin-left:5px">${s.msgs.length}件</span></button>
+      ${sessions.length>1?`<button onclick="delSess('${s.id}')" style="width:40px;border-radius:10px;background:rgba(255,69,58,.1);border:1px solid rgba(255,69,58,.2);color:#ff453a;font-size:16px">×</button>`:""}
+    </div>`;
+  });
+  el.innerHTML = html;
+}
+
+function renderMemos() {
+  const el = document.getElementById("memoList");
+  if (!memos.length) { el.innerHTML = `<div style="font-size:13px;color:#636366;text-align:center;padding:6px 0">会話するとAIが自動でメモします</div>`; return; }
+  el.innerHTML = memos.map((m,i) => `<div class="memo-item"><span style="color:#30d158">•</span><span style="flex:1">${escHtml(m)}</span><button onclick="delMemo(${i})" style="background:none;border:none;color:#636366;font-size:13px;cursor:pointer">×</button></div>`).join("");
+}
+
+// ── Settings ──
+function initSettings() {
+  // Profile
+  document.getElementById("profName").value = profile.name||"";
+  document.getElementById("profJob").value  = profile.job||"";
+  document.getElementById("profLike").value = profile.like||"";
+  // Model list
+  const ml = document.getElementById("modelList");
+  ml.innerHTML = MODELS.map(m => `<button class="model-btn ${m.id===model.id?"selected":""}" style="--mc:${m.color}" onclick="setModel('${m.id}')"><span style="font-size:22px">${m.badge}</span><span style="flex:1;font-size:14px;font-weight:600;color:${m.id===model.id?m.color:"#f2f2f7"}">${m.name}</span>${m.id===model.id?`<span style="color:${m.color}">✓</span>`:""}</button>`).join("");
+  // Templates
+  const tl = document.getElementById("tmplList");
+  tl.innerHTML = TEMPLATES.map(t => `<button class="tmpl-btn ${sys===t.prompt?"selected":""}" onclick="setTmpl(${JSON.stringify(t.prompt).replace(/"/g,"&quot;")})">${escHtml(t.name)}</button>`).join("");
+  // Sys prompt
+  document.getElementById("sysPrompt").value = sys;
+  document.getElementById("tokRange").value = maxTok;
+  document.getElementById("tokLabel").textContent = "最大トークン · "+maxTok;
+  renderMemos();
+}
+
+function setModel(id) { model = MODELS.find(m=>m.id===id); sv("ac2_model",model); updateModelBadge(); initSettings(); }
+function setTmpl(p)   { sys = p; sv("ac2_sys",sys); initSettings(); }
+function saveSettings(){ sys = document.getElementById("sysPrompt").value; sv("ac2_sys",sys); initSettings(); }
+function saveProfile() { profile = {name:document.getElementById("profName").value,job:document.getElementById("profJob").value,like:document.getElementById("profLike").value}; sv("ac2_prof",profile); }
+function updateTok(v)  { maxTok=+v; sv("ac2_tok",maxTok); document.getElementById("tokLabel").textContent="最大トークン · "+v; }
+function clearMemos()  { memos=[]; sv("ac2_memo",memos); renderMemos(); }
+function delMemo(i)    { memos.splice(i,1); sv("ac2_memo",memos); renderMemos(); }
+
+function updateModelBadge() {
+  const b = document.getElementById("modelBadge");
+  b.textContent = model.badge+" "+model.name;
+  b.style.color = model.color;
+  b.style.borderColor = model.color+"60";
+  b.style.background = model.color+"20";
+}
+
+// ── Navigation ──
+function switchTab(tab) {
+  document.getElementById("chatArea").style.display   = tab==="chat"?"":"none";
+  document.getElementById("inputArea").style.display  = tab==="chat"?"":"none";
+  document.getElementById("imgPreview").style.display = tab==="chat"&&imgData?"flex":"none";
+  document.getElementById("settingsPane").style.display= tab==="settings"?"block":"none";
+  document.getElementById("historyPane").style.display = tab==="history"?"block":"none";
+  ["chat","settings","history"].forEach(t => {
+    const btn = document.getElementById("nav-"+t);
+    const bar = btn.querySelector(".nav-bar");
+    if (t===tab) { btn.classList.add("active"); if(!bar){btn.insertAdjacentHTML("beforeend",'<div class="nav-bar"></div>');} }
+    else { btn.classList.remove("active"); bar?.remove(); }
+  });
+  if (tab==="history") renderHist();
+  if (tab==="settings") initSettings();
+}
+
+function switchSess(id) { sid=id; renderChat(); renderHist(); switchTab("chat"); }
+function toggleDrawer() { const d=document.getElementById("drawer"); d.style.display=d.style.display==="flex"?"none":"flex"; renderDrawer(); }
+function newSess() {
+  const id="s"+Date.now();
+  sessions.push({id,name:"チャット "+sessions.length+1,msgs:[]});
+  sv("ac2_sess",sessions); sid=id;
+  document.getElementById("drawer").style.display="none";
+  switchTab("chat"); renderChat(); renderHist();
+}
+function delSess(id) {
+  if(sessions.length<=1) return;
+  sessions=sessions.filter(s=>s.id!==id);
+  if(sid===id) sid=sessions[sessions.length-1].id;
+  sv("ac2_sess",sessions); renderChat(); renderHist(); renderDrawer();
+}
+
+// ── Input helpers ──
+function setInput(t) { document.getElementById("msgInput").value=t; updateSendBtn(); switchTab("chat"); }
+function autoResize(el) { el.style.height="32px"; el.style.height=Math.min(el.scrollHeight,110)+"px"; updateSendBtn(); }
+function handleKey(e) { if(e.key==="Enter"&&!e.shiftKey){ e.preventDefault(); send(); } }
+function updateSendBtn() {
+  const sb=document.getElementById("sendBtn"); if(!sb)return;
+  const has=document.getElementById("msgInput").value.trim()||imgData;
+  sb.className=has?"active":"inactive";
+}
+
+function handleImg(el) {
+  const f=el.files?.[0]; if(!f)return;
+  const r=new FileReader();
+  r.onload=ev=>{ imgData=ev.target.result.split(",")[1]; document.getElementById("previewImg").src=ev.target.result; document.getElementById("imgPreview").style.display="flex"; updateSendBtn(); };
+  r.readAsDataURL(f);
+}
+function clearImg() { imgData=null; document.getElementById("imgPreview").style.display="none"; updateSendBtn(); }
+
+function toggleStar(i) {
+  const k=sid+":"+i;
+  stars=stars.includes(k)?stars.filter(x=>x!==k):[...stars,k];
+  sv("ac2_stars",stars); renderChat();
+}
+
+function speakText(t) {
+  if(!window.speechSynthesis)return;
+  if(speaking){window.speechSynthesis.cancel();speaking=false;return;}
+  const u=new SpeechSynthesisUtterance(t.replace(/[#*`]/g,""));
+  u.lang="ja-JP"; u.onend=()=>{speaking=false;};
+  window.speechSynthesis.speak(u); speaking=true;
+}
+
+function exportChat() {
+  const s=getSess();
+  const t=s.msgs.map(m=>`[${m.r==="user"?"あなた":"AI"}] ${m.t}\n${m.c}`).join("\n\n---\n\n");
+  const a=document.createElement("a");
+  a.href=URL.createObjectURL(new Blob([t],{type:"text/plain"}));
+  a.download=s.name+".txt"; a.click();
+}
+</script>
+</body>
+</html>
